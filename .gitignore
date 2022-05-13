@@ -48,3 +48,11 @@ xbox\source\shaders\guideline-frag.inl
 
 # MacOS files
 *.DS_Store
+
+#IDEA
+.idea/
+
+#3DS files
+*.smdh
+*.3dsx
+3ds/build/sprites.h
