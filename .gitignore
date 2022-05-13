@@ -56,3 +56,6 @@ xbox\source\shaders\guideline-frag.inl
 *.smdh
 *.3dsx
 3ds/build/sprites.h
+*.t3x
+*bcfnt
+
