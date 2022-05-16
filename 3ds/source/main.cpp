@@ -500,7 +500,7 @@ int main(void)
 
             if ((kHold & KEY_TOUCH) && player.isOnGround())
             {
-                C2D_DrawLine(mouseDownX + (player.getX()- mouseDownX) + (player.getWidth()/2), mouseDownY + ((player.getY() + 10) - mouseDownY) + (player.getHeight()/2),  C2D_Color32f(0.90f,0.85f,0.79f,1.0f), touchX + (player.getX() - mouseDownX) + (player.getWidth()/2), touchY + + (player.getY() - mouseDownY) + (player.getHeight()/2), C2D_Color32f(0.90f,0.85f,0.79f,1.0f), 2.0f, 0.3f);
+                C2D_DrawLine(mouseDownX + (player.getX()- mouseDownX) + (player.getWidth()/2), mouseDownY + ((player.getY() + 10) - mouseDownY) + (player.getHeight()/2),  C2D_Color32f(0.90f,0.85f,0.79f,1.0f), touchX + (player.getX() - mouseDownX) + (player.getWidth()/2), touchY + + (player.getY() - mouseDownY) + (player.getHeight()/2), C2D_Color32f(0.90f,0.85f,0.79f,1.0f), 3.0f, 0.3f);
             }  
             for (int i = 0; i < 4; i++)
             {
