@@ -11,6 +11,7 @@
 #include "sprites.h"
 #include <cwav.h>
 #include <tuple>
+#include <dirent.h>
 
 #define SCREEN_WIDTH  400
 #define SCREEN_HEIGHT 240
@@ -45,16 +46,19 @@ bool playCoinFX = false;
 
 int getHighscore()
 {
-    //bds cjnwmds
-    return 1;
+    FILE *scorefile = fopen("/3ds/terri-fried/terri-fried-score.bin", "rb");
+    if(!scorefile)
+        return 0;
+
+    int ret = getw(scorefile);
+    fclose(scorefile);
+    return ret;
 }
 void saveHighscore(int val)
 {
-    /*
     FILE *scorefile = fopen("/3ds/terri-fried/terri-fried-score.bin", "wb");
-    fwrite(&val, sizeof(int), 1, scorefile);
-    fclose(scorefile);*/
-    printf("test %d", val);
+    putw(val, scorefile);
+    fclose(scorefile);
 }
 void addScore(int amount)
 {
@@ -155,8 +159,8 @@ void checkPlayerCollision()
     player.setOnPlatform(onPlatform);
 }
 
+//Audio Library and Example Code from PabloMK7's libcwav
 std::vector<std::tuple<std::string, CWAV*>> cwavList;
-
 void populateCwavList()
 {
 
@@ -220,10 +224,14 @@ void freeCwavList()
         free(std::get<1>(*it));
     }
 }
+//End of audio code
 
 int main(void)
 {
     srand (time(NULL));
+    mkdir("/3ds", 0777);
+    mkdir("/3ds/terri-fried/", 0777);
+
     resetScore();
     sprintf(highscore, "BEST: %d", highscoreInt);
     const int screenWidth = SCREEN_WIDTH;
@@ -284,7 +292,8 @@ int main(void)
     C2D_TextOptimize(&g_staticText[1]);
     C2D_TextOptimize(&g_staticText[2]);
     C2D_TextOptimize(&g_staticText[3]);
-
+    player.setX(platforms[0].getX() + platforms[0].getWidth()/2 - 26/2);
+    player.setY(platforms[0].getY() - player.getHeight());
     while (aptMainLoop())
     {
         hidScanInput();
@@ -298,11 +307,17 @@ int main(void)
         hidTouchRead(&touch);
         if ((kDown & KEY_START) || quit)
         {
+            saveHighscore(highscoreInt);
             break;
         }
         if (kDown & KEY_SELECT)
         {
             pause(top, bottom);
+        }
+        if(titleScreen && (kHold & KEY_X) && (kHold & KEY_L) && (kHold & KEY_R)) {
+            highscoreInt = 0;
+            saveHighscore(0);
+            quit = true;
         }
         int touchX;
         int touchY;
@@ -326,7 +341,6 @@ int main(void)
                     {
                         cwavPlay(cwav, 0, -1);
                     }
-                    //gSoloud.play(fxSelect);
                     playedSelect = true;
                 }
                 C2D_SpriteSetPos(&logo, screenWidth/2 - 200, screenHeight/2 - 45 - 30);
@@ -344,7 +358,6 @@ int main(void)
                 C3D_FrameEnd(0);
                 if (kDown & KEY_TOUCH)
                 {
-                    //gSoloud.play(fxSelect);
                     CWAV* cwav = std::get<1>(cwavList[1]);
                     if (cwav->numChannels == 2)
                     {
@@ -395,7 +408,6 @@ int main(void)
         {
             if (playCoinFX)
             {
-                //gSoloud.play(fxCoin);
                 CWAV* cwav = std::get<1>(cwavList[3]);
                 if (cwav->numChannels == 2)
                 {
@@ -418,7 +430,6 @@ int main(void)
                 {
                     cwavPlay(cwav, 0, -1);
                 }
-                //gSoloud.play(fxClick);
                     mouseDownX = touchX;
                     mouseDownY = touchY;
             }
@@ -430,7 +441,6 @@ int main(void)
                 }
                 else 
                 {
-                    //gSoloud.play(fxLaunch);
                     CWAV* cwav = std::get<1>(cwavList[5]);
                     if (cwav->numChannels == 2)
                     {
@@ -465,7 +475,6 @@ int main(void)
                 {
                     cwavPlay(cwav, 0, -1);
                 }
-                //gSoloud.play(fxDeath);
                 resetGame();
             }
             for (int i = 0; i < 4; i++)
