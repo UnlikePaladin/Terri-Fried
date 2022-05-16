@@ -1,23 +1,13 @@
-//#include <psp2/audioout.h>
-
 #include <citro2d.h>
 #include <3ds.h>
-#include <opusfile.h>
-
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <math.h>
 #include <stdio.h>
 #include <time.h>
 #include <fstream>
-
 #include "player.h"
 #include "platform.h"
-
-//#include "soloud.h"
-//#include "soloud_wav.h"
-//#include "soloud_speech.h"
 #include "sprites.h"
 #define SCREEN_WIDTH  400
 #define SCREEN_HEIGHT 240
@@ -25,19 +15,14 @@
 static C2D_SpriteSheet spriteSheet;
 static C2D_Sprite playerSprite, lavaSprite, platformSprite, coinSprite, scoreBoxSprite, logo, splashEggSprite;
 
-//SoLoud::Soloud gSoloud;
-//SoLoud::Wav fxLaunch;
-//SoLoud::Wav fxClick;
-//SoLoud::Wav fxDeath;
-//SoLoud::Wav fxCoin;
-//SoLoud::Wav fxSplash;
-//SoLoud::Wav fxSelect;
-
-static const char *SPLASH_PATH = "romfs:/splash.opus";
-static const char *SELECT_PATH = "romfs:/select.opus";
-static const char *DIE_PATH = "romfs:/die.opus";
-static const char *COIN_PATH = "romfs:/coin.opus";
-static const char *CLICK_PATH = "romfs:/click.opus";
+static const char* soundList[] = {
+        "romfs:/sounds/splash.wav",
+        "romfs:/sounds/select.wav",
+        "romfs:/sounds/die.wav",
+        "romfs:/sounds/coin.wav",
+        "romfs:/sounds/click.wav",
+        "romfs:/sounds/launch.wav",
+};
 
 const double pi = 3.1415926535897;
 const double gravity = 0.5;
@@ -161,44 +146,22 @@ int main(void)
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
     C2D_Prepare();
-    //consoleInit(GFX_BOTTOM, NULL);
 
     C3D_RenderTarget* top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
     C3D_RenderTarget* bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
     spriteSheet = C2D_SpriteSheetLoad("romfs:/gfx/sprites.t3x");
 
- //   sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
- //   sceTouchEnableTouchForce(SCE_TOUCH_PORT_FRONT);
-
     C2D_SpriteFromSheet(&playerSprite, spriteSheet, sprites_egg_idx);
-   // playerSprite = vita2d_load_PNG_file("app0:resources/egg.png");
-
     C2D_SpriteFromSheet(&lavaSprite, spriteSheet, sprites_lava_idx);
-   // lavaSprite = vita2d_load_PNG_file("app0:resources/lava.png");
-
     C2D_SpriteFromSheet(&platformSprite, spriteSheet, sprites_platform_idx);
-    //platformSprite = vita2d_load_PNG_file("app0:resources/platform.png");
-
     C2D_SpriteFromSheet(&coinSprite, spriteSheet, sprites_coin_idx);
-    //coinSprite = vita2d_load_PNG_file("app0:resources/coin.png");
-
     C2D_SpriteFromSheet(&scoreBoxSprite, spriteSheet, sprites_scorebox_idx);
-    //scoreBoxSprite = vita2d_load_PNG_file("app0:resources/scorebox.png");
-    C2D_SpriteSetDepth(&scoreBoxSprite, 0.6f);
-
     C2D_SpriteFromSheet(&logo, spriteSheet, sprites_logo_idx);
-    //logo = vita2d_load_PNG_file("app0:resources/logo.png");
-    C2D_SpriteSetDepth(&logo, 0.6f);
-
     C2D_SpriteFromSheet(&splashEggSprite, spriteSheet, sprites_splash_egg_idx);
-    //splashEggSprite = vita2d_load_PNG_file("app0:resources/splash_egg.png");
+    C2D_SpriteSetDepth(&logo, 0.6f);
+    C2D_SpriteSetDepth(&scoreBoxSprite, 0.6f);
     C2D_SpriteSetDepth(&splashEggSprite, 0.6f);
-
-    //gspWaitForVBlank();
-
-    //SceTouchData touch, oldtouch;
-	//sceTouchPeek(0, &oldtouch, 1);
 
     //TODO: Add sound back
     //fxLaunch.load("app0:/resources/launch.ogg");
@@ -208,7 +171,6 @@ int main(void)
     //fxSplash.load("app0:/resources/splash.ogg");
     //fxSelect.load("app0:/resources/select.ogg");
     font = C2D_FontLoad("romfs:resources/font.otf");
-
     g_staticBuf  = C2D_TextBufNew(4096);
     g_dynamicBuf = C2D_TextBufNew(4096);
 
@@ -224,7 +186,6 @@ int main(void)
 
     while (1)   
     {
-
         hidScanInput();
         //click
         u32 kDown = hidKeysDown();
@@ -232,20 +193,14 @@ int main(void)
         u32 kUp = hidKeysUp();
         //hold
         u32 kHold = hidKeysHeld();
-
         touchPosition touch;
-
         hidTouchRead(&touch);
-
-        //sceTouchPeek(0, &touch, 1);
         if (kDown & KEY_START)
         {
             break;
         }
-
         int touchX;
         int touchY;
-
         if(kHold & KEY_TOUCH)
         {
             touchX = touch.px;
@@ -268,16 +223,11 @@ int main(void)
                 C2D_DrawText(&g_staticText[0], C2D_AtBaseline | C2D_WithColor, (double)screenWidth/2 - 160, (double)screenHeight/2 + 10 + 32, 1.0f, 0.9f, 0.9f, C2D_Color32f(0.70f,0.59f,0.49f,0.4f));
                 C2D_DrawText(&g_staticText[1], C2D_AtBaseline, (double)screenWidth/2 - 46, (double)screenHeight/2 + 50 + 32, 1.0f, 0.9f, 0.9f);
 
-                //vita2d_font_draw_text(font, screenWidth/2 - 146, screenHeight/2 + 50 + 32, RGBA8(178, 150, 125, 102), 32, "CLICK ANYWHERE TO BEGIN");
-                //gfxFlushBuffers();
-                //gfxSwapBuffers();
                 C2D_TargetClear(bottom, C2D_Color32f(0.933f, 0.894f, 0.822f, 1.0f));
                 C2D_SceneBegin(bottom);
                 C2D_DrawText(&g_staticText[3], C2D_AtBaseline | C2D_WithColor, (double)screenWidth/2 - 150, (double)screenHeight/2 + 10 + 90, 1.0f, 0.9f, 0.9f, C2D_Color32f(0.70f,0.59f,0.49f,0.4f));
 
                 C3D_FrameEnd(0);
-
-
                 if (kDown & KEY_TOUCH)
                 {
                     //gSoloud.play(fxSelect);
@@ -296,7 +246,6 @@ int main(void)
                 C2D_TargetClear(top, C2D_Color32f(0.933f, 0.894f, 0.822f, 1.0f));
                 C2D_SceneBegin(top);
 
-                //vita2d_font_draw_text(font, screenWidth/2 - 59, screenHeight/2 + 3 + 26, RGBA8(213, 128, 90, 255), 32, "POLYMARS");
                 C2D_DrawText(&g_staticText[2], C2D_AtBaseline | C2D_WithColor, (double)screenWidth/2 - 51, (double)screenHeight/2 + 10 + 32, 0.0f, 1.0f, 1.0f, C2D_Color32f(0.84f,0.50f,0.35f,1.0f));
                 C2D_SpriteSetPos(&splashEggSprite, screenWidth/2 - 15, screenHeight/2 - 16 - 23);
                 C2D_DrawSprite(&splashEggSprite);
@@ -304,7 +253,6 @@ int main(void)
                 C2D_TargetClear(bottom, C2D_Color32f(0.933f, 0.894f, 0.822f, 1.0f));
                 C2D_SceneBegin(bottom);
                 C3D_FrameEnd(0);
-                //vita2d_swap_buffers();
                 splashTimer += 1;
 
             }
@@ -356,8 +304,7 @@ int main(void)
 
             lavaY = screenHeight - 29 - sin(timer) * 2.5;
             timer += 0.05;
-           // vita2d_start_drawing();
-           // vita2d_clear_screen();
+
             C2D_TextBufClear(g_dynamicBuf);
             C2D_Text dynText[1];
 
@@ -373,69 +320,47 @@ int main(void)
 
             if ((kHold & KEY_TOUCH) && player.isOnGround())
             {
-
                 C2D_DrawLine(mouseDownX + (player.getX()- mouseDownX) + (player.getWidth()/2), mouseDownY + ((player.getY() + 10) - mouseDownY) + (player.getHeight()/2),  C2D_Color32f(0.90f,0.85f,0.79f,1.0f), touchX + (player.getX() - mouseDownX) + (player.getWidth()/2), touchY + + (player.getY() - mouseDownY) + (player.getHeight()/2), C2D_Color32f(0.90f,0.85f,0.79f,1.0f), 2.0f, 0.3f);
-                //vita2d_draw_line(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2), mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2), touch.report[0].x + (player.getX() - mouseDownX) + (player.getWidth()/2), touch.report[0].y + (player.getY() - mouseDownY) + (player.getHeight()/2), RGBA8(231, 216, 201, 255));
-                //vita2d_draw_line(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2), mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1, touch.report[0].x + (player.getX() - mouseDownX) + (player.getWidth()/2), touch.report[0].y + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1, RGBA8(231, 216, 201, 255));
-                //C2D_DrawLine(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2), mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1,  C2D_Color32f(0.90f,0.85f,0.79f,1.0f), touchX + (player.getX() - mouseDownX) + (player.getWidth()/2), touchY + + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1, C2D_Color32f(0.90f,0.85f,0.79f,1.0f), 4.0f, 1.0f);
-                //vita2d_draw_line(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2), touch.report[0].x + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, touch.report[0].y + (player.getY() - mouseDownY) + (player.getHeight()/2), RGBA8(231, 216, 201, 255));
-               // C2D_DrawLine(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2),  C2D_Color32f(0.90f,0.85f,0.79f,1.0f), touchX + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, touchY + + (player.getY() - mouseDownY) + (player.getHeight()/2), C2D_Color32f(0.90f,0.85f,0.79f,1.0f), 4.0f, 1.0f);
-                //C2D_DrawLine(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1,  C2D_Color32f(0.90f,0.85f,0.79f,1.0f), touchX + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, touchY + + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1, C2D_Color32f(0.90f,0.85f,0.79f,1.0f), 4.0f, 1.0f);
-               //vita2d_draw_line(mouseDownX + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, mouseDownY + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1, touch.report[0].x + (player.getX() - mouseDownX) + (player.getWidth()/2) + 1, touch.report[0].y + (player.getY() - mouseDownY) + (player.getHeight()/2) + 1, RGBA8(231, 216, 201, 255));
             }  
             for (int i = 0; i < 4; i++)
             {
                 C2D_DrawSprite(&platformSprite);
                 C2D_SpriteSetPos(&platformSprite, platforms[i].getX(), platforms[i].getY());
-                //vita2d_draw_texture(platformSprite, platforms[i].getX(),  platforms[i].getY());
                 C2D_SpriteSetDepth(&platformSprite, 0.6f);
                 if (platforms[i].getHasCoin())
                 {
-                    //vita2d_draw_texture(coinSprite, platforms[i].getCoinX(), platforms[i].getCoinY());
                     C2D_SpriteSetPos(&coinSprite, platforms[i].getCoinX(), platforms[i].getCoinY());
                     C2D_SpriteSetDepth(&coinSprite, 0.5f);
                     C2D_DrawSprite(&coinSprite);
 
                 }
             }
-            //vita2d_draw_texture(&playerSprite, player.getX(), player.getY());
-
             C2D_SpriteSetPos(&playerSprite, player.getX() + 5, player.getY() + 15);
             C2D_SpriteSetDepth(&playerSprite, 0.5f);
             C2D_DrawSprite(&playerSprite);
 
-            //vita2d_draw_texture(lavaSprite, 0, lavaY);
             C2D_SpriteSetPos(&lavaSprite, 0, lavaY + 12);
             C2D_SpriteSetDepth(&lavaSprite, 0.7f);
             C2D_DrawSprite(&lavaSprite);
 
-            //vita2d_draw_texture(scoreBoxSprite, 17, 17);
             C2D_SpriteSetPos(&scoreBoxSprite, 10, 10);
             C2D_SpriteSetDepth(&scoreBoxSprite, 1.0f);
             C2D_DrawSprite(&scoreBoxSprite);
 
-            //vita2d_font_draw_text(font, 28 - 2, 20 + 64 - 9, RGBA8(0, 0, 0, 255), 64, score);
-            //vita2d_font_draw_text(font, 17, 90 + 32, RGBA8(0, 0, 0, 255), 32, highscore);
             C2D_DrawText(&dynText[0], C2D_AtBaseline, 14.5f, 42.0f, 1.0f, 0.9f, 1.3f);
             C2D_DrawText(&dynText[1], C2D_AtBaseline, 10.0f, 60.0f, 1.0f, 0.6f, 0.6f);
 
             C2D_TargetClear(bottom, C2D_Color32f(1.0f, 0.67f, 0.53f, 1.0f));
             C2D_SceneBegin(bottom);
-
             C3D_FrameEnd(0);
-            //vita2d_end_drawing();
-            //vita2d_swap_buffers();
         }
-        //oldtouch = touch;
     }
-    
 
-
+    // Delete graphics
+    C2D_SpriteSheetFree(spriteSheet);
     C2D_TextBufDelete(g_dynamicBuf);
     C2D_TextBufDelete(g_staticBuf);
     C2D_FontFree(font);
-    // Delete graphics
-    C2D_SpriteSheetFree(spriteSheet);
 
     // Deinit libs
     C2D_Fini();

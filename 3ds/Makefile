@@ -65,7 +65,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-exceptions -std=gnu++14
 ASFLAGS	:= $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lcitro2d -lcitro3d -lctru -lm
+LIBS	:= -lcitro2d -lcitro3d -lctru -lm -lcwav -lncsnd
 
 
 #---------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ LIBS	:= -lcitro2d -lcitro3d -lctru -lm
 # include and lib
 #---------------------------------------------------------------------------------
 # LIBDIRS	:= $(PORTLIBS) $(LIBCTRU)
-LIBDIRS	:= $(CTRULIB)
+LIBDIRS	:= $(CTRULIB) $(DEVKITPRO)/libcwav $(DEVKITPRO)/libncsnd
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
