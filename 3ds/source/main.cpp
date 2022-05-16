@@ -9,19 +9,22 @@
 #include "player.h"
 #include "platform.h"
 #include "sprites.h"
+#include <cwav.h>
+#include <tuple>
+
 #define SCREEN_WIDTH  400
 #define SCREEN_HEIGHT 240
 
 static C2D_SpriteSheet spriteSheet;
 static C2D_Sprite playerSprite, lavaSprite, platformSprite, coinSprite, scoreBoxSprite, logo, splashEggSprite;
 
-static const char* soundList[] = {
-        "romfs:/sounds/splash.wav",
-        "romfs:/sounds/select.wav",
-        "romfs:/sounds/die.wav",
-        "romfs:/sounds/coin.wav",
-        "romfs:/sounds/click.wav",
-        "romfs:/sounds/launch.wav",
+static const char* fileList[] = {
+        "romfs:/sounds/splash.bcwav",
+        "romfs:/sounds/select.bcwav",
+        "romfs:/sounds/die.bcwav",
+        "romfs:/sounds/coin.bcwav",
+        "romfs:/sounds/click.bcwav",
+        "romfs:/sounds/launch.bcwav",
 };
 
 const double pi = 3.1415926535897;
@@ -48,8 +51,7 @@ int getHighscore()
 void saveHighscore(int val)
 {
     /*
-    FILE *scorefile = fopen("sdmc:/config/terri-fried-score.bin", "wb");
-
+    FILE *scorefile = fopen("/3ds/terri-fried/terri-fried-score.bin", "wb");
     fwrite(&val, sizeof(int), 1, scorefile);
     fclose(scorefile);*/
     printf("test %d", val);
@@ -89,6 +91,41 @@ void resetGame()
     player.setX(platforms[0].getX() + platforms[0].getWidth()/2 - 26/2);
     player.setY(platforms[0].getY() - player.getHeight());
 }
+C2D_Font font;
+bool quit = false;
+
+void pause(C3D_RenderTarget* top, C3D_RenderTarget* bottom){
+    if (!titleScreen){
+        C3D_FrameEnd(0);
+        C2D_Text g_pauseText[2];
+        C2D_TextBuf g_pauseBuf  = C2D_TextBufNew(4096);
+
+        C2D_TextFontParse(&g_pauseText[0], font, g_pauseBuf, "PAUSED");
+        C2D_TextOptimize(&g_pauseText[0]);
+        C2D_TextFontParse(&g_pauseText[1], font, g_pauseBuf, "Press START to exit the game");
+        C2D_TextOptimize(&g_pauseText[1]);
+
+        while(aptMainLoop()) {
+            C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+            C2D_SceneBegin(top);
+
+            hidScanInput();
+            u32 kDown = hidKeysDown();
+            if(kDown & KEY_SELECT){
+                    break;
+                }
+            C2D_DrawText(&g_pauseText[0], C2D_AtBaseline | C2D_WithColor, SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT / 2, 1.0f, 0.9f, 0.9f, C2D_Color32f(0.70f,0.59f,0.49f,0.4f));
+            C2D_SceneBegin(bottom);
+            C2D_DrawText(&g_pauseText[1], C2D_AtBaseline | C2D_WithColor, (double)SCREEN_WIDTH/2 - 150, (double)SCREEN_HEIGHT/2 + 10 + 90, 1.0f, 0.6f, 0.6f, C2D_Color32f(0.0f,0.0f,0.0f,1.0f));
+            if(kDown & KEY_START){
+                quit = true;
+                break;
+            }
+            C3D_FrameEnd(0);
+        }
+        C2D_TextBufDelete(g_pauseBuf);
+    }
+}
 void checkPlayerCollision()
 {
     bool onPlatform = false;
@@ -118,6 +155,72 @@ void checkPlayerCollision()
     player.setOnPlatform(onPlatform);
 }
 
+std::vector<std::tuple<std::string, CWAV*>> cwavList;
+
+void populateCwavList()
+{
+
+    for (u32 i = 0; i < sizeof(fileList) / sizeof(char*); i++)
+    {
+
+        CWAV* cwav = (CWAV*)malloc(sizeof(CWAV));
+
+        FILE* file = fopen(fileList[i], "rb");
+        if (!file)
+        {
+            cwavFree(cwav);
+            free(cwav);
+            continue;
+        }
+
+        fseek(file, 0, SEEK_END);
+        u32 fileSize = ftell(file);
+        void* buffer = linearAlloc(fileSize);
+        if (!buffer) // This should never happen (unless we load a file too big to fit)
+            svcBreak(USERBREAK_PANIC);
+
+        fseek(file, 0, SEEK_SET);
+        fread(buffer, 1, fileSize, file);
+        fclose(file);
+
+        // Since we manually allocated the buffer, we use cwavLoad directly...
+        cwavLoad(cwav, buffer, 4);
+        cwav->dataBuffer = buffer; // (We store the buffer pointer here for convinience, but it's not required.)
+        // or, we could have let the library handle it...
+        // cwavFileLoad(cwav, fileList[i], maxSPlayList[i]);
+
+        if (cwav->loadStatus == CWAV_SUCCESS)
+        {
+            cwavList.push_back(std::make_tuple(std::string(fileList[i]), cwav));
+        }
+        else
+        {
+            // Manually de-allocating the buffer
+            cwavFree(cwav);
+            linearFree(cwav->dataBuffer);
+            // or, if we used cwavFileLoad, let the library handle it.
+            // cwavFileFree(cwav);
+
+            free(cwav);
+        }
+    }
+}
+
+void freeCwavList()
+{
+    for (auto it = cwavList.begin(); it != cwavList.end(); it++)
+    {
+        // Manually de-allocating the buffer
+        cwavFree(std::get<1>(*it));
+        void* buffer = std::get<1>(*it)->dataBuffer;
+        if (buffer)
+            linearFree(buffer);
+        // or, if we used cwavFileLoad, let the library handle it.
+        // cwavFileFree(std::get<1>(*it));
+        free(std::get<1>(*it));
+    }
+}
+
 int main(void)
 {
     srand (time(NULL));
@@ -135,14 +238,16 @@ int main(void)
     bool playedSelect = false;
     bool firstTime = true;
 
-    C2D_Font font;
-
     C2D_TextBuf g_staticBuf, g_dynamicBuf;
     C2D_Text g_staticText[3];
 
     romfsInit();
     cfguInit();
     gfxInitDefault();
+    cwavUseEnvironment(CWAV_ENV_DSP);
+    ndspInit();
+    gfxSet3D(true);
+
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
     C2D_Prepare();
@@ -163,14 +268,10 @@ int main(void)
     C2D_SpriteSetDepth(&scoreBoxSprite, 0.6f);
     C2D_SpriteSetDepth(&splashEggSprite, 0.6f);
 
-    //TODO: Add sound back
-    //fxLaunch.load("app0:/resources/launch.ogg");
-    //fxClick.load("app0:/resources/click.ogg");
-    //fxDeath.load("app0:/resources/die.ogg");
-    //fxCoin.load("app0:/resources/coin.ogg");
-    //fxSplash.load("app0:/resources/splash.ogg");
-    //fxSelect.load("app0:/resources/select.ogg");
+    populateCwavList();
+
     font = C2D_FontLoad("romfs:resources/font.otf");
+
     g_staticBuf  = C2D_TextBufNew(4096);
     g_dynamicBuf = C2D_TextBufNew(4096);
 
@@ -184,7 +285,7 @@ int main(void)
     C2D_TextOptimize(&g_staticText[2]);
     C2D_TextOptimize(&g_staticText[3]);
 
-    while (1)   
+    while (aptMainLoop())
     {
         hidScanInput();
         //click
@@ -195,9 +296,13 @@ int main(void)
         u32 kHold = hidKeysHeld();
         touchPosition touch;
         hidTouchRead(&touch);
-        if (kDown & KEY_START)
+        if ((kDown & KEY_START) || quit)
         {
             break;
+        }
+        if (kDown & KEY_SELECT)
+        {
+            pause(top, bottom);
         }
         int touchX;
         int touchY;
@@ -212,6 +317,15 @@ int main(void)
             {
                 if (!playedSelect)
                 {
+                    CWAV* cwav = std::get<1>(cwavList[1]);
+                    if (cwav->numChannels == 2)
+                    {
+                        cwavPlay(cwav, 0, 1);
+                    }
+                    else
+                    {
+                        cwavPlay(cwav, 0, -1);
+                    }
                     //gSoloud.play(fxSelect);
                     playedSelect = true;
                 }
@@ -231,6 +345,16 @@ int main(void)
                 if (kDown & KEY_TOUCH)
                 {
                     //gSoloud.play(fxSelect);
+                    CWAV* cwav = std::get<1>(cwavList[1]);
+                    if (cwav->numChannels == 2)
+                    {
+                        cwavPlay(cwav, 0, 1);
+                    }
+                    else
+                    {
+                        cwavPlay(cwav, 0, -1);
+                    }
+
                     titleScreen = false;
                     mouseDownX = touchX;
                     mouseDownY = touchY;
@@ -238,6 +362,16 @@ int main(void)
             } else {
                 if (!playedSplash)
                 {
+                    CWAV* cwav = std::get<1>(cwavList[0]);
+                    if (cwav->numChannels == 2)
+                    {
+                        cwavPlay(cwav, 0, 1);
+                    }
+                    else
+                    {
+                        cwavPlay(cwav, 0, -1);
+                    }
+
                     //gSoloud.play(fxSplash);
                     playedSplash = true;
                 }
@@ -262,11 +396,29 @@ int main(void)
             if (playCoinFX)
             {
                 //gSoloud.play(fxCoin);
+                CWAV* cwav = std::get<1>(cwavList[3]);
+                if (cwav->numChannels == 2)
+                {
+                    cwavPlay(cwav, 0, 1);
+                }
+                else
+                {
+                    cwavPlay(cwav, 0, -1);
+                }
                 playCoinFX = false;
             }
             if ((kDown & KEY_TOUCH) && player.isOnGround())
             {
-                    //gSoloud.play(fxClick);
+                    CWAV* cwav = std::get<1>(cwavList[4]);
+                if (cwav->numChannels == 2)
+                {
+                    cwavPlay(cwav, 0, 1);
+                }
+                else
+                {
+                    cwavPlay(cwav, 0, -1);
+                }
+                //gSoloud.play(fxClick);
                     mouseDownX = touchX;
                     mouseDownY = touchY;
             }
@@ -279,6 +431,16 @@ int main(void)
                 else 
                 {
                     //gSoloud.play(fxLaunch);
+                    CWAV* cwav = std::get<1>(cwavList[5]);
+                    if (cwav->numChannels == 2)
+                    {
+                        cwavPlay(cwav, 0, 1);
+                    }
+                    else
+                    {
+                        cwavPlay(cwav, 0, -1);
+                    }
+
                     if (player.isOnPlatform())
                     {
                         player.setY(player.getY() - 0.5);
@@ -294,6 +456,15 @@ int main(void)
             player.updatePosition();
             if (player.getY() > screenHeight)
             {
+                CWAV* cwav = std::get<1>(cwavList[2]);
+                if (cwav->numChannels == 2)
+                {
+                    cwavPlay(cwav, 0, 1);
+                }
+                else
+                {
+                    cwavPlay(cwav, 0, -1);
+                }
                 //gSoloud.play(fxDeath);
                 resetGame();
             }
@@ -332,7 +503,6 @@ int main(void)
                     C2D_SpriteSetPos(&coinSprite, platforms[i].getCoinX(), platforms[i].getCoinY());
                     C2D_SpriteSetDepth(&coinSprite, 0.5f);
                     C2D_DrawSprite(&coinSprite);
-
                 }
             }
             C2D_SpriteSetPos(&playerSprite, player.getX() + 5, player.getY() + 15);
@@ -347,7 +517,7 @@ int main(void)
             C2D_SpriteSetDepth(&scoreBoxSprite, 1.0f);
             C2D_DrawSprite(&scoreBoxSprite);
 
-            C2D_DrawText(&dynText[0], C2D_AtBaseline, 14.5f, 42.0f, 1.0f, 0.9f, 1.3f);
+            C2D_DrawText(&dynText[0], C2D_AtBaseline, 13.0f, 39.0f, 1.0f, 0.9f, 1.3f);
             C2D_DrawText(&dynText[1], C2D_AtBaseline, 10.0f, 60.0f, 1.0f, 0.6f, 0.6f);
 
             C2D_TargetClear(bottom, C2D_Color32f(1.0f, 0.67f, 0.53f, 1.0f));
@@ -355,13 +525,14 @@ int main(void)
             C3D_FrameEnd(0);
         }
     }
+    freeCwavList();
 
     // Delete graphics
     C2D_SpriteSheetFree(spriteSheet);
     C2D_TextBufDelete(g_dynamicBuf);
     C2D_TextBufDelete(g_staticBuf);
     C2D_FontFree(font);
-
+    ndspExit();
     // Deinit libs
     C2D_Fini();
     C3D_Fini();
